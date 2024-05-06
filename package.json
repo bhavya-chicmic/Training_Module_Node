@@ -1,0 +1,47 @@
+{
+  "name": "training-module",
+  "version": "1.0.0",
+  "description": "Node.js Application",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server"
+  },
+  "repository": {
+    "type": "git",
+    "url": ""
+  },
+  "author": "Chicmic",
+  "license": "ISC",
+  "dependencies": {
+    "aws-sdk": "^2.537.0",
+    "axios": "^1.6.8",
+    "bcrypt": "^5.0.1",
+    "bluebird": "^3.5.3",
+    "cors": "^2.8.5",
+    "dotenv": "^8.6.0",
+    "express": "^4.16.4",
+    "express-basic-auth": "^1.2.0",
+    "handlebars": "^4.7.7",
+    "joi": "^17.5.0",
+    "joi-to-swagger": "^5.2.0",
+    "json2csv": "^6.0.0-alpha.2",
+    "jsonwebtoken": "^9.0.2",
+    "madge": "^5.0.1",
+    "moment": "^2.29.4",
+    "moment-timezone": "^0.5.33",
+    "mongoose": "^5.3.13",
+    "multer": "^1.4.2",
+    "node-cron": "^3.0.0",
+    "nodemailer": "^6.6.1",
+    "pino": "^7.6.5",
+    "pino-logflare": "^0.4.2",
+    "redis": "^4.1.0",
+    "swagger-ui-express": "^4.0.1",
+    "xlsx": "^0.18.5"
+  },
+  "devDependencies": {
+    "eslint": "^8.17.0",
+    "eslint-config-airbnb-base": "^15.0.0",
+    "eslint-plugin-import": "^2.26.0"
+  }
+}
