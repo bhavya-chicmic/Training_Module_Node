@@ -5,7 +5,18 @@
  ********* independently ********
  ******************************* */
 module.exports = {
-	sessionModel: require('./sessionModel'),
-	userModel: require('./userModel'),
+	SessionModel: require('./sessionModel'),
 	dbVersionModel: require('./dbVersionModel'),
+	AssignedPlanModel: require('./assignedPlanModel'),
+	CourseModel: require('./courseModel'),
+	FeedbackModel: require('./feedbackModel'),
+	GithubSampleModel: require('./githubSampleModel'),
+	PhaseModel: require('./phaseModel'),
+	PlanModel: require('./planModel'),
+	PlanTaskModel: require('./planTaskModel'),
+	SubTaskModel: require('./subTaskModel'),
+	TaskModel: require('./taskModel'),
+	TestModel: require('./testModel'),
+	UserProgressModel: require('./userProgressModel'),
+	UserTimeModel: require('./userTimeModel'),
 };

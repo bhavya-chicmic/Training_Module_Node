@@ -8,4 +8,5 @@
 module.exports = {
 	serverController: require('./serverController'),
 	userController: require('./userController'),
+	courseController: require('./courseController'),
 };

@@ -19,7 +19,6 @@ const app = EXPRESS();
 ******************************* */
 const server = http.Server(app);
 
-
 /** Server is running here */
 const startNodeserver = async () => {
 	const isSwaggerWrite = true;

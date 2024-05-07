@@ -61,6 +61,6 @@ module.exports = async (app, isSwaggerWrite) => {
 		next();
 	});
 
-	await migerateDatabase(); // run database migrations.
+	// await migerateDatabase(); // run database migrations.
 	await routeUtils.route(app, routes, isSwaggerWrite); // initalize routes.
 };
