@@ -25,6 +25,6 @@ const planSchema = new Schema({
     createdBy: { type: String },
     deleted: { type: Boolean, default: false },
     approved: { type: Boolean, default: false },
-  }, { timestamps: true, versionKey: false });
+}, { timestamps: true, versionKey: false, collection: 'plan' });
 
 module.exports = MONGOOSE.model('plan', planSchema);

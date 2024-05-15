@@ -25,6 +25,6 @@ const planTaskSchema = new Schema({
     isDeleted: { type: Boolean, default: false },
     phase: { type: Schema.Types.ObjectId, ref: 'phase' },
     plans: { type: Schema.Types.ObjectId, ref: 'plan' }
-}, { timestamps: true, versionKey: false });
+}, { timestamps: true, versionKey: false, collection: 'planTask' });
 
 module.exports = MONGOOSE.model('planTask', planTaskSchema);

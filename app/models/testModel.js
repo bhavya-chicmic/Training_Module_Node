@@ -19,6 +19,6 @@ const testSchema = new Schema({
     estimatedTime: { type: Number },
     completedTasks: { type: Number },
     totalTasks: { type: Number }
-  }, { timestamps: true, versionKey: false });
+}, { timestamps: true, versionKey: false, collection: 'test' });
 
 module.exports = MONGOOSE.model('test', testSchema);

@@ -18,6 +18,6 @@ const githubSampleSchema = new Schema({
     comment: { type: String },
     isDeleted: { type: Boolean, default: false },
     isApproved: { type: Boolean, default: false }
-  }, { timestamps: true, versionKey: false });
+}, { timestamps: true, versionKey: false, collection: 'githubSample' });
 
 module.exports = MONGOOSE.model('githubSample', githubSampleSchema);

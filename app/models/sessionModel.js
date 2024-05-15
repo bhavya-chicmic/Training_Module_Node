@@ -39,6 +39,6 @@ const sessionSchema = new Schema({
 	  default: false
 	},
 	MOM: Schema.Types.Mixed, // Dependent on the structure of MomMessage
-}, { timestamps: true, versionKey: false });
+}, { timestamps: true, versionKey: false, collection: 'session' });
 
 module.exports = MONGOOSE.model('session', sessionSchema);

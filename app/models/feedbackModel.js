@@ -19,6 +19,6 @@ const feedbackSchema = new Schema({
     createdBy: { type: String },
     planId: { type: Schema.Types.ObjectId, ref: 'plan' },
     isDeleted: { type: Boolean, default: false },
-  }, { timestamps: true, versionKey: false });
+}, { timestamps: true, versionKey: false, collection: 'feedback_V2' });
 
 module.exports = MONGOOSE.model('feedback_V2', feedbackSchema);

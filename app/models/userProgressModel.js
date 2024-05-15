@@ -18,6 +18,6 @@ const userSchema = new Schema({
 	startDate: { type: Date },
 	endDate: { type: Date },
 	feedbackId: { type: Schema.Types.ObjectId, ref: 'feedback_V2' }
-}, { timestamps: true, versionKey: false });
+}, { timestamps: true, versionKey: false, collection: 'userProgress' });
 
 module.exports = MONGOOSE.model('userProgress', userSchema);

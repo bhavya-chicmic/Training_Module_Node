@@ -5,7 +5,7 @@ const MONGOOSE = require('mongoose');
 const { Schema } = MONGOOSE;
 const { TRAINING_STATUS } = require('../utils/constants');
 
-
+//1 user can have 1 
 // NOTE: this model is uses for development only( not live and staging server)
 /** *********** User Session Model ********** */
 const assignedPlanSchema = new Schema({
@@ -18,6 +18,6 @@ const assignedPlanSchema = new Schema({
   deleted: { type: Boolean, default: false },
   approved: { type: Boolean, default: false },
   trainingStatus: { type: Number, default: TRAINING_STATUS.ONGOING },
-}, { timestamps: true, versionKey: false });
+}, { timestamps: true, versionKey: false, collection: 'assignedPlan' });
 
 module.exports = MONGOOSE.model('assignedPlan', assignedPlanSchema);

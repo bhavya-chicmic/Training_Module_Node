@@ -19,6 +19,6 @@ const subTaskSchema = new Schema({
     reference: { type: String, trim: true },
     task: { type: Schema.Types.ObjectId, ref: 'task' },
     isDeleted: { type: Boolean, default: false }
-}, { timestamps: true, versionKey: false });
+}, { timestamps: true, versionKey: false, collection: 'subTask' });
 
 module.exports = MONGOOSE.model('subTask', subTaskSchema);

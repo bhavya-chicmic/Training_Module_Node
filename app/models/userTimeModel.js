@@ -16,6 +16,6 @@ const userTimeSchema = new Schema({
     consumedTime: { type: Number },
     isDeleted: { type: Boolean },
     type: { type: Number },
-}, { timestamps: true, versionKey: false, collection: 'users' });
+}, { timestamps: true, versionKey: false, collection: 'userTime' });
 
 module.exports = MONGOOSE.model('userTime', userTimeSchema);

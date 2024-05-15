@@ -1,133 +1,91 @@
-/* eslint-disable consistent-return */
-/* eslint-disable no-use-before-define */
-
 'use strict';
 
 const swaggerUI = require('swagger-ui-express');
-const Joi = require('joi');
-const path = require('path');
-const multer = require('multer');
 const SERVICES = require('../services');
-const CONFIG = require('../../config');
-const { MESSAGES, ERROR_TYPES, AVAILABLE_AUTHS } = require('./constants');
+const Joi = require('joi');
+const basicAuth = require('express-basic-auth');
+const { CREDENTIALS, SWAGGER } = require('../../config');
+const { MESSAGES, ERROR_TYPES } = require('./constants');
 const HELPERS = require('../helpers');
 const utils = require('./utils');
-
+const multer = require('multer');
 const uploadMiddleware = multer();
 
 const routeUtils = {};
 
-
-/**
-* function to create routes in the express.
-*/
-// routeUtils.route = async (app, routes = [], isSwaggerWrite) => {
-// 	routes.forEach((route) => {
-// 		let middlewares = [];
-// 		if (route.joiSchemaForSwagger.formData) {
-// 			const multerMiddleware = getMulterMiddleware(route.joiSchemaForSwagger.formData);
-// 			middlewares = [ multerMiddleware ];
-// 		}
-// 		middlewares.push(getValidatorMiddleware(route));
-// 		if (route.auth === AVAILABLE_AUTHS.USER) {
-// 			if (route.continueWithoutToken) {
-// 				middlewares.push(SERVICES.authService.userValidate(route.continueWithoutToken));
-// 			} else {
-// 				middlewares.push(SERVICES.authService.userValidate());
-// 			}
-// 		}
-// 		else if (route.auth === AVAILABLE_AUTHS.ADMIN) {
-// 			if (route.continueWithoutToken) {
-// 				middlewares.push(SERVICES.authService.adminValidate(route.continueWithoutToken));
-// 			} else {
-// 				middlewares.push(SERVICES.authService.adminValidate());
-// 			}
-// 		}
-// 		if (route.auth) {
-// 			middlewares.push(SERVICES.authService.userValidate(route.auth));
-// 		}
-// 		app.route(route.path)[route.method.toLowerCase()](...middlewares, getHandlerMethod(route));
-// 	});
-// 	createSwaggerUIForRoutes(app, routes, isSwaggerWrite);
-// };
-
 /**
  * function to create routes in the express.
  */
-routeUtils.route = async (app, routes = [], isSwaggerWrite) => {
+routeUtils.route = async (app, routes = []) => {
 	routes.forEach((route) => {
 		let middlewares = [];
-  
+
 		if (route.joiSchemaForSwagger.formData) {
 			const multerMiddleware = getMulterMiddleware(route.joiSchemaForSwagger.formData);
 			middlewares = [ multerMiddleware ];
 		}
-		middlewares.push(getValidatorMiddleware(route));
-		if (route.auth === AVAILABLE_AUTHS.USER) {
-			if (route.continueWithoutToken) {
-				middlewares.push(SERVICES.authService.userValidate(route.continueWithoutToken));
-			} else {
-				middlewares.push(SERVICES.authService.userValidate());
+		if (route.authType) {
+			middlewares.push(SERVICES.authService.authValidate(route.authType));
+		} else {
+			if (route.auth) {
+				middlewares.push(SERVICES.authService.userValidate(route.auth, route.key));
 			}
-		}
-		else if (route.auth === AVAILABLE_AUTHS.ADMIN) {
-			if (route.continueWithoutToken) {
-				middlewares.push(SERVICES.authService.adminValidate(route.continueWithoutToken));
-			} else {
-				middlewares.push(SERVICES.authService.adminValidate());
+			if (route.permission && !route.key) {
+				middlewares.push(SERVICES.authService.checkPermission(route.permission));
+			}
+			if (route.roles && !route.key) {
+				middlewares.push(SERVICES.authService.checkUserRole(route.roles));
 			}
 		}
 
+		middlewares.push(getValidatorMiddleware(route));
 		app.route(route.path)[route.method.toLowerCase()](...middlewares, getHandlerMethod(route));
 	});
-	createSwaggerUIForRoutes(app, routes, isSwaggerWrite);
+	createSwaggerUIForRoutes(app, routes);
 };
-  
 
 /**
-* function to check the error of all joi validations
-* @param {*} joiValidatedObject
-*/
+ * function to check the error of all joi validations
+ * @param {*} joiValidatedObject
+ */
 const checkJoiValidationError = (joiValidatedObject) => {
 	if (joiValidatedObject.error) throw joiValidatedObject.error;
 };
 
 /**
-* function to validate request body/params/query/headers with joi schema to validate a request is valid or not.
-* @param {*} route
-*/
+ * function to validate request body/params/query/headers with joi schema to validate a request is valid or not.
+ * @param {*} route
+ */
 const joiValidatorMethod = async (request, route) => {
 	if (route.joiSchemaForSwagger.params && Object.keys(route.joiSchemaForSwagger.params).length) {
-		request.params = await Joi.object(route.joiSchemaForSwagger.params).validate(request.params);
+		request.params = Joi.object(route.joiSchemaForSwagger.params).validate(request.params);
 		checkJoiValidationError(request.params);
 	}
 	if (route.joiSchemaForSwagger.body && Object.keys(route.joiSchemaForSwagger.body).length) {
-		request.body = await Joi.object(route.joiSchemaForSwagger.body).validate(request.body);
+		request.body = Joi.object(route.joiSchemaForSwagger.body).unknown(false).validate(request.body);
 		checkJoiValidationError(request.body);
 	}
 	if (route.joiSchemaForSwagger.query && Object.keys(route.joiSchemaForSwagger.query).length) {
-		request.query = await Joi.object(route.joiSchemaForSwagger.query).validate(request.query);
+		request.query = Joi.object(route.joiSchemaForSwagger.query).unknown(false).validate(request.query);
 		checkJoiValidationError(request.query);
 	}
 	if (route.joiSchemaForSwagger.headers && Object.keys(route.joiSchemaForSwagger.headers).length) {
-		const headersObject = await Joi.object(route.joiSchemaForSwagger.headers).unknown(true).validate(request.headers);
+		const headersObject = Joi.object(route.joiSchemaForSwagger.headers).unknown(true).validate(request.headers);
 		checkJoiValidationError(headersObject);
 		request.headers.authorization = ((headersObject || {}).value || {}).authorization;
 	}
-	if (route.joiSchemaForSwagger.formData
-        && route.joiSchemaForSwagger.formData.body
-        && Object.keys(route.joiSchemaForSwagger.formData.body).length) {
+	if (route.joiSchemaForSwagger.formData && route.joiSchemaForSwagger.formData.body && Object.keys(route.joiSchemaForSwagger.formData.body).length) {
 		multiPartObjectParse(route.joiSchemaForSwagger.formData.body, request);
-		request.body = await Joi.object(route.joiSchemaForSwagger.formData.body).validate(request.body);
+		request.body = Joi.object(route.joiSchemaForSwagger.formData.body).validate(request.body);
 		checkJoiValidationError(request.body);
 	}
 };
 
 /**
-*  Parse the object recived in multipart data request
-* @param {*} formBody
-* @param {*} request
-*/
+ *  Parse the object recived in multipart data request
+ * @param {*} formBody
+ * @param {*} request
+ */
 const multiPartObjectParse = (formBody, request) => {
 	let invalidKey;
 	try {
@@ -143,21 +101,27 @@ const multiPartObjectParse = (formBody, request) => {
 };
 
 /**
-* middleware to validate request body/params/query/headers with JOI.
-* @param {*} route
-*/
-const getValidatorMiddleware = (route) => (request, response, next) => {
-	joiValidatorMethod(request, route).then(() => next()).catch((err) => {
-		const error = utils.convertErrorIntoReadableForm(err);
-		const responseObject = HELPERS.createErrorResponse(error.message.toString(), ERROR_TYPES.BAD_REQUEST);
-		return response.status(responseObject.statusCode).json(responseObject);
-	});
+ * middleware to validate request body/params/query/headers with JOI.
+ * @param {*} route
+ */
+const getValidatorMiddleware = (route) => {
+	return (request, response, next) => {
+		joiValidatorMethod(request, route)
+			.then(() => {
+				return next();
+			})
+			.catch((err) => {
+				const error = utils.convertErrorIntoReadableForm(err);
+				const responseObject = HELPERS.createErrorResponse(error.message.toString(), ERROR_TYPES.BAD_REQUEST);
+				return response.status(responseObject.statusCode).json(responseObject);
+			});
+	};
 };
 
 /**
-*  middleware to  to handle the multipart/form-data
-* @param {*} formData
-*/
+ *  middleware to  to handle the multipart/form-data
+ * @param {*} formData
+ */
 const getMulterMiddleware = (formData) => {
 	// for multiple files
 	if (formData.files && Object.keys(formData.files).length) {
@@ -181,18 +145,18 @@ const getMulterMiddleware = (formData) => {
 };
 
 /**
-* middleware
-* @param {*} handler
-*/
+ * middleware
+ * @param {*} handler
+ */
 const getHandlerMethod = (route) => {
-	const { handler } = route;
+	const handler = route.handler;
 	return (request, response) => {
 		let payload = {
-			...((request.body || {}).value || {}),
-			...((request.params || {}).value || {}),
-			...((request.query || {}).value || {}),
-			file: (request.file || {}),
-			user: (request.user ? request.user : {}),
+			...(request?.body?.value || {}),
+			...(request?.params?.value || {}),
+			...(request?.query?.value || {}),
+			file: request.file || {},
+			user: request?.user || {}
 		};
 		// request handler/controller
 		if (route.getExactRequest) {
@@ -202,22 +166,15 @@ const getHandlerMethod = (route) => {
 		handler(payload)
 			.then((result) => {
 				if (result.filePath) {
-					const filePath = path.resolve(`${__dirname}/../${result.filePath}`);
-					return response.status(result.statusCode).sendFile(filePath);
-				}
-				if (result.fileData) {
+					return response.status(result.statusCode).sendFile(result.filePath);
+				} else if (result.fileData) {
 					response.attachment(result.fileName);
 					response.send(result.fileData.Body);
 					return response;
-				}
-				if (result.redirectUrl) {
+				} else if (result.redirectUrl) {
 					return response.redirect(result.redirectUrl);
 				}
-				if (result.statusCode) {
-					response.status(result.statusCode).json(result);
-				} else {
-					response.json(result);
-				}
+				response.status(result.statusCode).json(result);
 			})
 			.catch((err) => {
 				console.log('Error is ', err);

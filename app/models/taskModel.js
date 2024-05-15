@@ -13,6 +13,6 @@ const taskSchema = new Schema({
     estimatedTime:  { type: Number },
     phase: { type: Schema.Types.ObjectId, ref: 'phase' },
     isDeleted: { type: Boolean, default: false }
-  }, { timestamps: true, versionKey: false });
+}, { timestamps: true, versionKey: false, collection: 'task' });
 
 module.exports = MONGOOSE.model('task', taskSchema);

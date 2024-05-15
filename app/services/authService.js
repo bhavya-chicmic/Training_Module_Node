@@ -1,162 +1,155 @@
 'use strict';
 
-const CONFIG = require('../../config');
-const jwt = require('jsonwebtoken');
-const { decryptJwt } = require('../utils/utils');
 const { createErrorResponse } = require('../helpers');
-const dbService = require('./dbService');
-const { conversationRoomModel, sessionModel, userModel, adminModel } = require('../models');
-const {
-	MESSAGES, ERROR_TYPES, NORMAL_PROJECTION, TOKEN_TYPES
-} = require('../utils/constants');
-const CONSTANTS = require('../utils/constants');
-
+const { convertIdToMongooseId } = require('../utils/utils');
+const { MESSAGES, ERROR_TYPES, AUTH_TYPE } = require('../utils/constants');
+const CONFIG = require('../../config');
 
 const authService = {};
 
 /**
- * function to validate user's token and fetch its details from the system.
- * @param {} request
- */
-const validateUser = async (request, authType) => {
-	try {
-		if (authType == CONSTANTS.AVAILABLE_AUTHS.SERVER) {
-			if (CONFIG.API_KEY === '') {
-				return true;
-			} else {
-				if (!request.headers.hasOwnProperty('x-api-key') || !request.headers['x-api-key']) {
-					return false;
-				}
-				if (request.headers['x-api-key'] === CONFIG.API_KEY) {
-					return true;
-				}
-			}
-		} else {
-			let user;
-			const session = await sessionModel.findOne({ token: (request.headers.authorization), tokenType: TOKEN_TYPES.LOGIN }).lean();
-			if (!session) {
-				return false;
-			}
-
-			if (session.role === CONSTANTS.USER_ROLES.USER) {
-				user = await userModel.findOne({ _id: session.userId }).lean();
-			}
-
-			if (user) {
-				user.session = session;
-				request.user = user;
-				return true;
-			}
-		}
-		return false;
-
-	} catch (err) {
-		return false;
-	}
-};
-
-/**
  * function to authenticate user.
  */
-authService.userValidate = (authType) => {
+authService.userValidate = () => {
 	return (request, response, next) => {
-		validateUser(request, authType).then((isAuthorized) => {
-			if (request.user && !request.user.isActive) {
-				const responseObject = createErrorResponse(MESSAGES.FORBIDDEN, ERROR_TYPES.FORBIDDEN);
-				return response.status(responseObject.statusCode).json(responseObject);
-			}
-			if (typeof (isAuthorized) === 'string') {
-				const responseObject = createErrorResponse(MESSAGES.FORBIDDEN(request.method, request.url), ERROR_TYPES.FORBIDDEN);
-				return response.status(responseObject.statusCode).json(responseObject);
-			}
-			if (isAuthorized) {
-				return next();
-			}
-			const responseObject = createErrorResponse(MESSAGES.UNAUTHORIZED, ERROR_TYPES.UNAUTHORIZED);
-			return response.status(responseObject.statusCode).json(responseObject);
-		}).catch(() => {
-			const responseObject = createErrorResponse(MESSAGES.UNAUTHORIZED, ERROR_TYPES.UNAUTHORIZED);
-			return response.status(responseObject.statusCode).json(responseObject);
-		});
-	};
-};
-
-/**
- * function to authenticate admin.
- */
-authService.adminValidate = (continueWithoutToken = false) => {
-	return (request, response, next) => {
-		if (continueWithoutToken && !request.headers.authorization) {
-			return next();
-		}
-
-		validateAdmin(request)
+		validateUser(request)
 			.then((isAuthorized) => {
 				if (isAuthorized) {
 					return next();
 				}
 				const responseObject = createErrorResponse(MESSAGES.UNAUTHORIZED, ERROR_TYPES.UNAUTHORIZED);
 				return response.status(responseObject.statusCode).json(responseObject);
-			}).catch((err) => {
+			})
+			.catch(() => {
 				const responseObject = createErrorResponse(MESSAGES.UNAUTHORIZED, ERROR_TYPES.UNAUTHORIZED);
 				return response.status(responseObject.statusCode).json(responseObject);
 			});
 	};
 };
 
-
 /**
- * function to validate admin's jwt token and fetch its details from the system.
+ * function to validate user's jwt token and fetch its details from the system.
  * @param {} request
  */
-const validateAdmin = async (request) => {
+const validateUser = async (request) => {
 	try {
-		// return request.headers.authorization === SECURITY.STATIC_TOKEN_FOR_AUTHORIZATION
-		const decodedToken = jwt.verify(request.headers.authorization, CONSTANTS.SECURITY.JWT_SIGN_KEY);
-		const authenticatedAdmin = await adminModel.findOne({ _id: decodedToken._id }).lean();
-		if (authenticatedAdmin) {
-			request.user = authenticatedAdmin;
+		const authenticatedUser = request.headers.usermeta;
+		if (authenticatedUser) {
+			request.user = JSON.parse(authenticatedUser)?.user?.data;
+			request.user._id = convertIdToMongooseId(request.user._id);
+			request.user.sessionToken = request.headers.authorization;
 			return true;
 		}
 		return false;
 	} catch (err) {
-		// log.error("", err);
 		return false;
 	}
 };
 
-
-/*
- * function to authenticate socket token
+/**
+ * function to check user permission.
  */
-authService.socketAuthentication = async (socket, next) => {
+authService.checkPermission = (permission) => {
+	return (request, response, next) => {
+		validatePermission(request, permission)
+			.then((isAuthorized) => {
+				if (isAuthorized) {
+					return next();
+				}
+				const responseObject = createErrorResponse(MESSAGES.FORBIDDEN, ERROR_TYPES.FORBIDDEN);
+				return response.status(responseObject.statusCode).json(responseObject);
+			})
+			.catch((err) => {
+				console.log('Error: ', err.message);
+				const responseObject = createErrorResponse(MESSAGES.FORBIDDEN, ERROR_TYPES.FORBIDDEN);
+				return response.status(responseObject.statusCode).json(responseObject);
+			});
+	};
+};
+
+/**
+ * function to validate user's permission.
+ * @param {} request
+ */
+const validatePermission = async (request, permission) => {
 	try {
-		const session = await decryptJwt(socket.handshake.query.authorization);
-		if (!session) {
-			return next({ success: false, message: MESSAGES.UNAUTHORIZED });
-		}
+		const userPermission = request.user.permissions;
 
-		const user = await dbService.findOne(userModel, { _id: session.userId }, NORMAL_PROJECTION);
-		if (!user) {
-			return next({ success: false, message: MESSAGES.UNAUTHORIZED });
+		if (userPermission && userPermission[permission]) {
+			return true;
 		}
-		const userId = session.userId.toString();
-		socket.join(userId); // -- user to join room
-		socket.userId = userId;
-
-		const groupData = await dbService.find(conversationRoomModel, { 'members.userId': { $eq: socket.userId } });
-		if (!groupData) {
-			return ({ success: false, message: MESSAGES.NOT_FOUND });
-		}
-
-		for (let i = 0; i < groupData.length; i++) {
-			socket.join(groupData[i].uniqueCode);
-		}
-
-		return next();
+		return false;
 	} catch (err) {
-		return next({ success: false, message: MESSAGES.SOMETHING_WENT_WRONG });
+		return false;
 	}
+};
+
+/**
+ * function to check user permission.
+ */
+authService.checkUserRole = (roles) => {
+	return (request, response, next) => {
+		validateUserRole(request, roles)
+			.then((isAuthorized) => {
+				if (isAuthorized) {
+					return next();
+				}
+				const responseObject = createErrorResponse(MESSAGES.FORBIDDEN, ERROR_TYPES.FORBIDDEN);
+				return response.status(responseObject.statusCode).json(responseObject);
+			})
+			.catch((err) => {
+				console.log('Error: ', err.message);
+				const responseObject = createErrorResponse(MESSAGES.FORBIDDEN, ERROR_TYPES.FORBIDDEN);
+				return response.status(responseObject.statusCode).json(responseObject);
+			});
+	};
+};
+
+/**
+ * function to validate user's permission.
+ * @param {} request
+ */
+const validateUserRole = async (request, roles) => {
+	try {
+		const userRole = request?.user?.roleData[0]?.role;
+
+		if (roles.includes(userRole)) {
+			return true;
+		}
+		return false;
+	} catch (err) {
+		return false;
+	}
+};
+
+authService.authValidate = (authType) => {
+	return async (request, response, next) => {
+		Promise.allSettled([ authService.validateApiKey(request), validateUser(request) ]).then((result) => {
+			if (authType === AUTH_TYPE.AUTH_OR_KEY) {
+				if (!(result?.[0]?.value || result?.[1]?.value)) {
+					const responseObject = createErrorResponse(MESSAGES.UNAUTHORIZED, ERROR_TYPES.UNAUTHORIZED);
+					return response.status(responseObject.statusCode).json(responseObject);
+				}
+			} else if (authType === AUTH_TYPE.AUTH_AND_KEY) {
+				if (!(result?.[0]?.value && result?.[1].value)) {
+					const responseObject = createErrorResponse(MESSAGES.UNAUTHORIZED, ERROR_TYPES.UNAUTHORIZED);
+					return response.status(responseObject.statusCode).json(responseObject);
+				}
+			}
+
+			return next();
+		});
+	};
+};
+
+/**
+ * function to validate api key
+ */
+authService.validateApiKey = async (request) => {
+	if (request.headers['x-api-key'] === CONFIG.SERVER.X_API_KEY) {
+		return true;
+	}
+	return false;
 };
 
 module.exports = authService;
